@@ -1,0 +1,62 @@
+version: '3'
+
+networks:
+  docker:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  localstack_data:
+  redis_data:
+
+
+services:
+  postgres:
+    image: postgres:14.6
+    restart: on-failure
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: postgres
+    entrypoint: [ 'docker-entrypoint.sh', 'postgres', '-c', 'fsync=off' ]
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - docker
+
+  localstack:
+    image: localstack/localstack:latest
+    restart: on-failure
+    environment:
+      SERVICES: sqs,sns,s3,lambda
+      AWS_DEFAULT_REGION: us-east-1
+      ALLOW_EMPTY_PASSWORD: 'yes'
+      AWS_ACCESS_KEY_ID: TEST
+      AWS_SECRET_ACCESS_KEY: TEST
+      EDGE_PORT: 4566
+      DEBUG: 1
+      LAMBDA_REMOTE_DOCKER: 0
+    ports:
+      - '4566-4597:4566-4597' # Default port forward
+      - "9200:4571" # Elasticsearch port forward
+      - "8080:8080" # WebUI port forward
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock'
+      - localstack_data:/tmp/localstack
+    networks:
+      - docker
+
+  redis:
+    image: redis:6.2.6
+    restart: on-failure
+    environment:
+      REDIS_USER: redis
+      ALLOW_EMPTY_PASSWORD: 'yes'
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - docker
